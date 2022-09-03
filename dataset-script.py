@@ -5,14 +5,16 @@ import datetime
 import time
 import pandas as pd
 
-LIMIT = 10000                   # We want the maximum of 10000 data points
-TIME_STEP = 1 * 60000 * LIMIT   # Set step size
-OFFSET = 20                      # number of days that are deleted before the start date during calculations
-
 # Query parameters
 PAIR = 'btcusd'     # Currency pair of interest
 BIN_SIZE = '1m'     # This will return minute data
-NUM_DAYS = 31    # number of days to query   
+GRANULARITY = 1     # BIN_SIZE in integer form
+NUM_DAYS = 31    # number of days to query
+
+LIMIT = 10000                   # We want the maximum of 10000 data points
+TIME_STEP = GRANULARITY * 60000 * LIMIT   # Set step size
+OFFSET = 20                      # number of days that are deleted before the start date during calculations
+# TOTAL_DATA_POINTS
 
  
 def fetch_data(start, stop, symbol, interval, tick_limit, step):
@@ -45,7 +47,7 @@ def fetch_data(start, stop, symbol, interval, tick_limit, step):
         start = start + step
 
         eta.print_status()
-        time.sleep(1)
+        time.sleep(0.7)
 
     eta.done()
     return data
@@ -75,19 +77,23 @@ def get_data_df(num_days, pair, bin_size, limit, time_step):
 
 
 def calculate_change(df):
-    return df.assign(change=lambda x: round(((x.close-x.open)/x.open)*100.0, 2))
+    df = df.assign(change=lambda x: round(((x.close-x.open)/x.open)*100.0, 2))
+    change_list = df['change'].tolist()
 
-def calculate_prev_change(df, change_list):
     prev_change_list = change_list[:-1]
     prev_change_list.insert(0, 0.0)
     df['prev_change'] = prev_change_list
-    return df.iloc[1:, :]
 
-def calculate_next_change(df, change_list):
     next_change_list = change_list[1:]
     next_change_list.append(0.0)
     df['next_change'] = next_change_list
-    return df.iloc[:-1, :]
+
+    return df.iloc[1:-1, :]
+
+
+# def simple_moving_average(price_list, days, granularity):
+#     num_data_points = int(1440 * days / granularity)
+
 
 
 def main():
@@ -95,9 +101,6 @@ def main():
     
     print('Calculating values...')
     df = calculate_change(df)
-    change_list = df['change'].tolist()
-    df = calculate_prev_change(df, change_list)
-    df = calculate_next_change(df, change_list)
     print('Done!')
     
     print('Writing to file...')
