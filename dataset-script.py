@@ -5,11 +5,12 @@ import datetime
 import time
 import pandas as pd
 import matplotlib.pyplot as plt
+import statistics
 
 # Query parameters
 PAIR = 'btcusd'     # Currency pair of interest
-BIN_SIZE = '1m'     # This will return minute data
-GRANULARITY = 1     # BIN_SIZE in integer form
+BIN_SIZE = '5m'     # This will return minute data
+GRANULARITY = 5     # BIN_SIZE in integer form
 NUM_DAYS = 365    # number of days to query
 
 LIMIT = 10000                   # We want the maximum of 10000 data points
@@ -97,14 +98,14 @@ def calculate_moving_average(df, price_list, days, granularity, ema_smoothing):
     price_list = price_list[num_data_points:]
 
     df = df.iloc[num_data_points:]
-
+    
     def calc_sma(price):
         data_cache.pop(0)
         data_cache.append(price)
         return float(sum(data_cache)/len(data_cache))
 
-    df['sma'] = list(map(calc_sma, price_list))
 
+    df['sma'] = list(map(calc_sma, price_list))
     
     data_cache = data_point_list[:]
     prev_ema = float(sum(data_cache)/num_data_points)
@@ -117,21 +118,50 @@ def calculate_moving_average(df, price_list, days, granularity, ema_smoothing):
     
     df['ema'] = list(map(calc_ema, price_list))
 
+
+    temp_data_point_list = data_point_list[:]
+    change_perc_list = []
+    annual_periods_sqrt = 252 ** 0.5
+    for i in range(1, len(temp_data_point_list), ceil(1440 / granularity)):
+        change_perc_list.append((temp_data_point_list[i]/temp_data_point_list[i-1]) - 1)
+
+    def calc_volatility(price):
+        nonlocal change_perc_list
+        vol = statistics.stdev(change_perc_list) * annual_periods_sqrt
+
+        temp_data_point_list.pop(0)
+        temp_data_point_list.append(price)
+
+        change_perc_list = []
+        for i in range(1, len(temp_data_point_list), ceil(1440 / granularity)):
+            change_perc_list.append((temp_data_point_list[i]/temp_data_point_list[i-1]) - 1)
+        # change_perc_list.pop(0)
+        # change_perc_list.append((price/change_perc_list[-1]) - 1)
+        return vol
+
+    df['volatility'] = list(map(calc_volatility, price_list))
+
     return df
 
 
 def plot_data(df, granularity, fields, write_path):
+    fig, (ax1, ax2) = plt.subplots(2)
+
     x = [x * granularity for x in range(df.shape[0])]
 
     for field in fields:
-        if not field in df.columns:
+        if not field in df.columns or field=='volatility':
             continue
-        plt.plot(x, df[field].tolist(), label=field)
-    
-    plt.xlabel('time')
-    plt.ylabel('price')
-    plt.title('Price Chart')
-    plt.legend()
+        ax1.plot(x, df[field].tolist(), label=field)
+    ax1.set(xlabel='time', ylabel='price')
+    ax1.set_title('Price Chart')
+    ax1.legend()
+
+    if 'volatility' in fields:
+        ax2.plot(x, df['volatility'].tolist(), label='volatility')
+    ax2.set(xlabel='time')
+    ax2.set_title('Volatility Chart')
+
     plt.savefig(write_path)
     plt.show()
 
@@ -151,7 +181,7 @@ def main():
     print('Done!')
 
     print('Plotting to graph...')
-    plot_data(df, GRANULARITY, ['close', 'sma', 'ema'], 'plots/plot-' + file_extension + '.png')
+    plot_data(df, GRANULARITY, ['close', 'sma', 'ema', 'volatility'], 'plots/plot-' + file_extension + '.png')
     print('Done!')
     
 
