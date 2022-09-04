@@ -4,9 +4,9 @@ import sys
 # Import models to test
 import models
 
-DATASET_PATH = 'datasets/crypto_dataset-1m.csv'
+DATASET_PATH = 'datasets/crypto_dataset-365days-1m.csv'
 INITIAL_FUNDS = 100000
-MODEL = models.BuyOnceModel(funds=INITIAL_FUNDS)
+MODEL = models.DCAModel(funds=INITIAL_FUNDS)
 
 def format_float(num, dp):
     format_str = "{:." + str(dp) + "f}"
@@ -57,7 +57,7 @@ class Backtester:
         latest_close_price = self.dataset.iloc[-1]['close']
         equity_dollars = latest_close_price * self.equity
         net_worth = equity_dollars + self.funds
-        gain = (net_worth/INITIAL_FUNDS) - 1
+        gain = 100.0 * (net_worth/INITIAL_FUNDS - 1)
         if gain < 0:
             gain_string = "-" + format_float(gain * -1, 4) + "%"
         else:

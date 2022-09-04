@@ -21,3 +21,16 @@ class BuyOnceModel(Model):
         else:
             return ('HOLD', 0)
        
+
+# Weekly dollar cost averaging
+# Assumes at least one year data range
+class DCAModel(Model):
+    last_buy_date = None
+    def evaluate_update(self, metrics):
+        current_date = (metrics['year'], metrics['month'], metrics['day'])
+        # Invest once on the first day of every week
+        if metrics['day_of_week'] == 0 and self.last_buy_date != current_date:
+            self.last_buy_date = current_date
+            return ('BUY', self.funds/52)
+
+        return ('HOLD', 0)
