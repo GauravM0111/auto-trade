@@ -114,7 +114,7 @@ def calculate_moving_average(df, price_list, days, granularity, ema_smoothing):
 
     return df
 
-def plot_data(df, granularity, fields):
+def plot_data(df, granularity, fields, write_path):
     x = [x * granularity for x in range(df.shape[0])]
 
     for field in fields:
@@ -126,6 +126,7 @@ def plot_data(df, granularity, fields):
     plt.ylabel('price')
     plt.title('Price Chart')
     plt.legend()
+    plt.savefig(write_path)
     plt.show()
 
 
@@ -137,12 +138,14 @@ def main():
     df = calculate_change(df)
     print('Done!')
 
+    file_extension = str(NUM_DAYS) + 'days-' + BIN_SIZE
+
     print('Writing to file...')
-    df.to_csv('datasets/crypto_dataset-1m.csv')
+    df.to_csv('datasets/crypto_dataset-' + file_extension + '.csv')
     print('Done!')
 
     print('Plotting to graph...')
-    plot_data(df, GRANULARITY, ['close', 'sma', 'ema'])
+    plot_data(df, GRANULARITY, ['close', 'sma', 'ema'], 'plots/plot-' + file_extension + '.png')
     print('Done!')
     
 
