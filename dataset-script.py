@@ -4,17 +4,18 @@ import bitfinex
 import datetime
 import time
 import pandas as pd
+import matplotlib.pyplot as plt
 
 # Query parameters
 PAIR = 'btcusd'     # Currency pair of interest
 BIN_SIZE = '1m'     # This will return minute data
 GRANULARITY = 1     # BIN_SIZE in integer form
-NUM_DAYS = 31    # number of days to query
+NUM_DAYS = 365    # number of days to query
 
 LIMIT = 10000                   # We want the maximum of 10000 data points
 TIME_STEP = GRANULARITY * 60000 * LIMIT   # Set step size
 OFFSET = 20                      # number of days that are deleted before the start date during calculations
-# TOTAL_DATA_POINTS
+EMA_SMOOTHING = 2
 
  
 def fetch_data(start, stop, symbol, interval, tick_limit, step):
@@ -38,7 +39,7 @@ def fetch_data(start, stop, symbol, interval, tick_limit, step):
             entry.append(struct_time.tm_mon)                                            # month of year
             entry.append(struct_time.tm_mday)                                           # day of month
             entry.append(struct_time.tm_wday)                                           # day of week
-            entry.append(struct_time.tm_wday >= 5)                                      # weekend or not
+            entry.append(int(struct_time.tm_wday >= 5))                                      # weekend or not
             entry.append(struct_time.tm_hour)                                           # hour of day
             entry.append(struct_time.tm_min)                                            # minute of hour
             entry.append(struct_time.tm_sec)                                            # second of minute
@@ -80,31 +81,68 @@ def calculate_change(df):
     df = df.assign(change=lambda x: round(((x.close-x.open)/x.open)*100.0, 2))
     change_list = df['change'].tolist()
 
-    prev_change_list = change_list[:-1]
-    prev_change_list.insert(0, 0.0)
-    df['prev_change'] = prev_change_list
-
     next_change_list = change_list[1:]
     next_change_list.append(0.0)
     df['next_change'] = next_change_list
 
-    return df.iloc[1:-1, :]
+    return df.iloc[:-1, :]
 
 
-# def simple_moving_average(price_list, days, granularity):
-#     num_data_points = int(1440 * days / granularity)
+def calculate_moving_average(df, price_list, days, granularity, ema_smoothing):
+    num_data_points = ceil(1440 * days / granularity)
 
+    data_point_list = price_list[:num_data_points]
+    price_list = price_list[num_data_points:]
+
+    first_sma = float(sum(data_point_list)/num_data_points)
+    sma_list = []
+    ema_list = [first_sma]
+
+    for price in price_list:
+        data_point_list.pop(0)
+        data_point_list.append(price)
+        sma = float(sum(data_point_list)/num_data_points)
+        sma_list.append(sma)
+
+        ema = (price * (ema_smoothing/(1 + num_data_points))) + (ema_list[-1] * (1 - (ema_smoothing/(1 + num_data_points))))
+        ema_list.append(ema)
+
+    ema_list.pop(0)
+    df = df.iloc[num_data_points:]
+    df['sma'] = sma_list
+    df['ema'] = ema_list
+
+    return df
+
+def plot_data(df, granularity, fields):
+    x = [x * granularity for x in range(df.shape[0])]
+
+    for field in fields:
+        if not field in df.columns:
+            continue
+        plt.plot(x, df[field].tolist(), label=field)
+    
+    plt.xlabel('time')
+    plt.ylabel('price')
+    plt.title('Price Chart')
+    plt.legend()
+    plt.show()
 
 
 def main():
     df = get_data_df(num_days=NUM_DAYS+OFFSET, pair=PAIR, bin_size=BIN_SIZE, limit=LIMIT, time_step=TIME_STEP)
     
     print('Calculating values...')
+    df = calculate_moving_average(df, df['close'].tolist(), OFFSET, GRANULARITY, EMA_SMOOTHING)
     df = calculate_change(df)
     print('Done!')
-    
+
     print('Writing to file...')
     df.to_csv('datasets/crypto_dataset-1m.csv')
+    print('Done!')
+
+    print('Plotting to graph...')
+    plot_data(df, GRANULARITY, ['close', 'sma', 'ema'])
     print('Done!')
     
 
