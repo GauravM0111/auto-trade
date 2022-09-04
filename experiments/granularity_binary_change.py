@@ -35,9 +35,10 @@ def process_binary_change(row):
 def main():
     df = pandas.read_csv(DATASET_PATH)
     df.apply(process_binary_change, axis=1)
-    print(change_map)
+    print(dict(sorted(change_map.items(), key=lambda item: item[1], reverse=True)))
     plt.bar(*zip(*change_map.items()))
-    plt.show() 
+    plt.show()
+    print("hello")
 
 if __name__ == "__main__":
     main()
