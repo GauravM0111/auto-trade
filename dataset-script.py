@@ -88,31 +88,37 @@ def calculate_change(df):
     return df.iloc[:-1, :]
 
 
+
 def calculate_moving_average(df, price_list, days, granularity, ema_smoothing):
     num_data_points = ceil(1440 * days / granularity)
 
     data_point_list = price_list[:num_data_points]
+    data_cache = data_point_list[:]
     price_list = price_list[num_data_points:]
 
-    first_sma = float(sum(data_point_list)/num_data_points)
-    sma_list = []
-    ema_list = [first_sma]
-
-    for price in price_list:
-        data_point_list.pop(0)
-        data_point_list.append(price)
-        sma = float(sum(data_point_list)/num_data_points)
-        sma_list.append(sma)
-
-        ema = (price * (ema_smoothing/(1 + num_data_points))) + (ema_list[-1] * (1 - (ema_smoothing/(1 + num_data_points))))
-        ema_list.append(ema)
-
-    ema_list.pop(0)
     df = df.iloc[num_data_points:]
-    df['sma'] = sma_list
-    df['ema'] = ema_list
+
+    def calc_sma(price):
+        data_cache.pop(0)
+        data_cache.append(price)
+        return float(sum(data_cache)/len(data_cache))
+
+    df['sma'] = list(map(calc_sma, price_list))
+
+    
+    data_cache = data_point_list[:]
+    prev_ema = float(sum(data_cache)/num_data_points)
+
+    def calc_ema(price):
+        nonlocal prev_ema
+        ema = float((price * (ema_smoothing/(1 + num_data_points))) + (prev_ema * (1 - (ema_smoothing/(1 + num_data_points)))))
+        prev_ema = ema
+        return ema
+    
+    df['ema'] = list(map(calc_ema, price_list))
 
     return df
+
 
 def plot_data(df, granularity, fields, write_path):
     x = [x * granularity for x in range(df.shape[0])]
