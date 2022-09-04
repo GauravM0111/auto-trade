@@ -6,7 +6,7 @@ import models
 
 DATASET_PATH = 'datasets/crypto_dataset-365days-1m.csv'
 INITIAL_FUNDS = 100000
-MODEL = models.BuyOnceModel(funds=INITIAL_FUNDS)
+MODEL = models.DCAModel(funds=INITIAL_FUNDS)
 
 def format_float(num, dp):
     format_str = "{:." + str(dp) + "f}"
